@@ -91,12 +91,12 @@ def checkout(config, student):
     """
 
     if student['github']:
-        outdir = os.path.join(config['outdir'], student['workshop'])
+        outdir = os.path.join(config['outdir'], student['workshop'].replace("|", "-").replace(":", "."))
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
         targetdir = os.path.join(outdir, student['id'])
-
+        
         if os.path.exists(targetdir):
             # existing repo, pull
             cmd = ['git', 'pull']
