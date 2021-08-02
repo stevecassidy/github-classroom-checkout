@@ -156,8 +156,7 @@ def process(config):
     ilearn = read_ilearn_export(config['ilearn-csv'])
     students, missing = merge_students(github, ilearn)
 
-    workshops = ['Workshop_1|FRI|01:00PM|C13', 'Workshop_1|TUE|11:00AM|C01']
-    return checkout_workshop(config, students, workshops)
+    return checkout_workshop(config, students, config['workshops'])
 
 
 
