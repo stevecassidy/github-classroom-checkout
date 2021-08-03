@@ -20,7 +20,7 @@ from nbconvert import HTMLExporter
 from nbconvert.writers import FilesWriter
 import glob
 
-def read_github_roster(csvfile):
+def read_github_roster(pattern, csvfile):
     """Read the roster exported from github, return
     a dictionary with the student ID as the key and the
     github username as the value. If there is no github ID then
@@ -33,19 +33,20 @@ def read_github_roster(csvfile):
         reader = csv.DictReader(fd)
         for line in reader:
             if 'identifier' in line:
-                match = re.search('\d+', line['identifier'])
+                match = re.search(pattern, line['identifier'])
                 if match:
                     result[match.group(0)] = line['github_username']
 
     return result
 
 
-def read_ilearn_export(csvfile):
+def read_ilearn_export(csvfile, key_field):
     """Read the file exported from iLearn, return a
     dictionary with student id as the key and
     a dictionary with 'email' and 'group' as the values
     """
 
+    workshops = []
     result = {}
     with open(csvfile) as fd:
         reader = csv.DictReader(fd)
@@ -55,8 +56,13 @@ def read_ilearn_export(csvfile):
                 workshop = [g for g in groups if 'Workshop' in g]
                 if workshop != []:
                     workshop = workshop[0].replace('[', '').replace(']', '')
-                    
-                result[line['ID number']] = {'email': line['Email address'], 'workshop': workshop}
+                    if not workshop in workshops:
+                        workshops.append(workshop)
+                
+                tmp = {'id': line['ID number'], 'email': line['Email address'], 'workshop': workshop}
+                result[tmp[key_field]] = tmp
+
+    print(workshops)
 
     return result
 
@@ -70,19 +76,23 @@ def merge_students(github, ilearn):
     keys = set(keys.union(set(ilearn.keys())))
 
     roster = []
-    missing = []
+    not_in_github = []
+    extra_github = []
+    no_github_account = []
     for key in keys:
         if key in github and key in ilearn:
-            student = ilearn[key].copy()
-            student['id'] = key
-            student['github'] = github[key]
-            roster.append(student)
+            if github[key] != '':
+                student = ilearn[key].copy() 
+                student['github'] = github[key]
+                roster.append(student)
+            else:
+                no_github_account.append(ilearn[key])
         elif key in github:
-            missing.append({'id': key, 'github': github[key]})
+            extra_github.append({'id': key, 'github': github[key]})
         else:
-            missing.append({'id': key, 'ilearn': ilearn[key]})
+            not_in_github.append(ilearn[key])
 
-    return roster, missing
+    return roster, not_in_github, extra_github, no_github_account
 
 
 def checkout(config, student):
@@ -108,11 +118,11 @@ def checkout(config, student):
             p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             output = p1.communicate()
 
-        title = "<p>" + student['id'] + "</p>"
-        return title + nbconvert(targetdir)
-    
-    else:
-        return "<p>" + student['id'] + " has no Github ID</p>"
+        if config["nbconvert"]:
+            title = "<p>" + student['id'] + "</p>"
+            return title + nbconvert(targetdir)
+        else:
+            return ""
 
 
 def nbconvert(targetdir):
@@ -149,13 +159,27 @@ def checkout_workshop(config, students, workshops):
 
     return html
 
+from pprint import pprint
 
 def process(config):
 
-    github = read_github_roster(config['github-roster'])
-    ilearn = read_ilearn_export(config['ilearn-csv'])
-    students, missing = merge_students(github, ilearn)
+    github = read_github_roster(config['github-id-pattern'], config['github-roster'])
+    ilearn = read_ilearn_export(config['ilearn-csv'], config['key-field'])
+    students, not_in_github, extra_github, no_github_account = merge_students(github, ilearn)
+    
+    if config['report']:
+        print("Extra names in Github Classroom roster")
+        for m in extra_github:
+            print(m['id'])
+        print("\nStudents not in Github Classroom Roster")
+        print("Add these to the roster to associate with student github accounts")
+        for m in not_in_github:
+            print(m['email'])
 
+        print("\nThese students have no github account yet")
+        for m in no_github_account:
+            print(m['email'])
+    
     return checkout_workshop(config, students, config['workshops'])
 
 
@@ -163,15 +187,10 @@ def process(config):
 if __name__=='__main__':
 
     import sys
+    import json
 
-    config = {
-        'github-roster': sys.argv[1],
-        'ilearn-csv': sys.argv[2],
-        'classroom': "git@github.com:MQCOMP2200-S2-2021",
-        'assignment': "practical-week-1",
-        'outdir': 'submissions',
-        'workshops': ['Workshop_1|FRI|01:00PM|C13', 'Workshop_1|TUE|11:00AM|C01']
-    }
+    with open(sys.argv[1]) as input:
+        config = json.load(input)
 
     github = process(config)
 

@@ -1,0 +1,11 @@
+{
+    "github-roster": "classroom_roster_COMP2200.csv",
+    "github-id-pattern": "\\d+",
+    "key-field": "id",
+    "ilearn-csv": "COMP2200_SHFYR_2021_ALL_Uwith COMP6200 Co-badged Grades-20210731_0912-comma_separated.csv",
+    "classroom": "git@github.com:MQCOMP2200-S2-2021",
+    "assignment": "practicals-week-1",
+    "outdir": "submissions-2200",
+    "workshops": [],
+    "nbconvert": 0
+}
