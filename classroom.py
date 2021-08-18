@@ -151,12 +151,15 @@ def nbconvert(targetdir):
     html_exporter.template_name = 'classic'
 
     links = "<ul>"
-    for nbfile in glob.glob(os.path.join(targetdir, '*.ipynb')):
-        htmlfile = nbfile.replace('ipynb', 'html')
-        (body, resources) = html_exporter.from_filename(nbfile)
-        links += "<li><a target='new' href='" + htmlfile +"'>" + htmlfile + "</a></li>"
-        with open(htmlfile, 'w') as out:
-            out.write(body)
+    for root, dirs, files in os.walk(targetdir):
+        for fname in files:
+            if '.ipynb_checkpoints' not in root and fname.endswith('.ipynb'):
+                nbfile = os.path.join(root, fname)
+                htmlfile = os.path.splitext(nbfile)[0] + '.html'
+                (body, resources) = html_exporter.from_filename(nbfile)
+                links += "<li><a target='new' href='" + htmlfile +"'>" + htmlfile + "</a></li>"
+                with open(htmlfile, 'w') as out:
+                    out.write(body)
 
     links += "</ul>"
 
