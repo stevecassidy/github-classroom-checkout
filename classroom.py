@@ -16,8 +16,6 @@ import csv
 import subprocess
 import os
 import re
-from nbconvert import HTMLExporter
-from nbconvert.writers import FilesWriter
 import glob
 
 def read_github_roster(pattern, csvfile):
@@ -66,8 +64,20 @@ def read_ilearn_export(csvfile, key_field):
 
     return result
 
+def read_github_repos(csvfile):
+    """Read the CSV file created by get-repos.py to get the Github URLs
+    for each student"""
 
-def merge_students(github, ilearn):
+    repos = {}
+    with open(csvfile) as fd:
+        reader = csv.DictReader(fd)
+        for line in reader:
+            repos[line['githubID']] = line['githubURL']
+
+    return repos
+
+
+def merge_students(config, github, ilearn, repos):
     """Generate one dictionary with info from both
     rosters, also return a dictionary with people not
     in both"""
@@ -84,6 +94,10 @@ def merge_students(github, ilearn):
             if github[key] != '':
                 student = ilearn[key].copy() 
                 student['github'] = github[key]
+                if github[key] in repos:
+                    student['url'] = repos[github[key]]
+                else:
+                    print("Can't find repo for ", github[key], student[config['key-field']])
                 roster.append(student)
             else:
                 no_github_account.append(ilearn[key])
@@ -113,8 +127,8 @@ def checkout(config, student):
             p1 = subprocess.Popen(cmd, cwd=targetdir, stdout=subprocess.PIPE)
             output = p1.communicate()
         else:
-            repo = "%s/%s-%s" % (config['classroom'], config['assignment'], student['github'])
-            cmd = ['git', 'clone', repo, targetdir]
+            
+            cmd = ['git', 'clone', student['url'], targetdir]
             p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             output = p1.communicate()
 
@@ -128,6 +142,8 @@ def checkout(config, student):
 def nbconvert(targetdir):
     """Run 'jupyter nbconvert' in the target directory and return
     the path to any HTML files generated"""
+
+    from nbconvert import HTMLExporter
 
     # 2. Instantiate the exporter. We use the `classic` template for now; we'll get into more details
     # later about how to customize the exporter further.
@@ -159,13 +175,13 @@ def checkout_workshop(config, students, workshops):
 
     return html
 
-from pprint import pprint
-
 def process(config):
 
     github = read_github_roster(config['github-id-pattern'], config['github-roster'])
     ilearn = read_ilearn_export(config['ilearn-csv'], config['key-field'])
-    students, not_in_github, extra_github, no_github_account = merge_students(github, ilearn)
+    repos = read_github_repos(config['github-repos-csv'])
+
+    students, not_in_github, extra_github, no_github_account = merge_students(config, github, ilearn, repos)
     
     if config['report']:
         print("Extra names in Github Classroom roster")
@@ -174,7 +190,7 @@ def process(config):
         print("\nStudents not in Github Classroom Roster")
         print("Add these to the roster to associate with student github accounts")
         for m in not_in_github:
-            print(m['email'])
+            print(m[config['key-field']])
 
         print("\nThese students have no github account yet")
         for m in no_github_account:
@@ -188,7 +204,7 @@ if __name__=='__main__':
 
     import sys
     import json
-
+ 
     with open(sys.argv[1]) as input:
         config = json.load(input)
 
