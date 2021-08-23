@@ -114,7 +114,7 @@ def checkout(config, student):
     named for the student id and workshop
     """
 
-    if student['github']:
+    if student['url']:
         outdir = os.path.join(config['outdir'], student['workshop'].replace("|", "-").replace(":", "."))
         if not os.path.exists(outdir):
             os.makedirs(outdir)
