@@ -114,7 +114,7 @@ def checkout(config, student):
     named for the student id and workshop
     """
 
-    if student['url']:
+    if 'url' in student:
         outdir = os.path.join(config['outdir'], student['workshop'].replace("|", "-").replace(":", "."))
         if not os.path.exists(outdir):
             os.makedirs(outdir)
@@ -137,6 +137,9 @@ def checkout(config, student):
             return title + nbconvert(targetdir)
         else:
             return ""
+    else:
+        print(student)
+        return ""
 
 
 def nbconvert(targetdir):
