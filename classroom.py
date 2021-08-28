@@ -157,12 +157,15 @@ def nbconvert(targetdir):
     for root, dirs, files in os.walk(targetdir):
         for fname in files:
             if '.ipynb_checkpoints' not in root and fname.endswith('.ipynb'):
-                nbfile = os.path.join(root, fname)
-                htmlfile = os.path.splitext(nbfile)[0] + '.html'
-                (body, resources) = html_exporter.from_filename(nbfile)
-                links += "<li><a target='new' href='" + htmlfile +"'>" + htmlfile + "</a></li>"
-                with open(htmlfile, 'w') as out:
-                    out.write(body)
+                try:
+                    nbfile = os.path.join(root, fname)
+                    htmlfile = os.path.splitext(nbfile)[0] + '.html'
+                    (body, resources) = html_exporter.from_filename(nbfile)
+                    links += "<li><a target='new' href='" + htmlfile +"'>" + htmlfile + "</a></li>"
+                    with open(htmlfile, 'w') as out:
+                        out.write(body)
+                except:
+                    links += "<li>Error processing <a target='new' href='" + nbfile + "'>" + nbfile + "</li>"
 
     links += "</ul>"
 
