@@ -9,7 +9,7 @@ Open the notebook to run the code or use the scripts directly.
 
 `get-repos.py COMP2200-weekly.json` will use the Github API to find the 
 github repository for each student for an assignment. It needs a Github
-access token (from (https://github.com/settings/tokens)[Github])
+access token (from [https://github.com/settings/tokens](Github))
 JSON config file.  It writes results to a csv file that is then read by the 
 classroom script or notebook.
 
