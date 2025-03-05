@@ -18,7 +18,7 @@ import os
 import re
 import glob
 
-def read_github_roster(pattern, csvfile):
+def read_github_grades(csvfile):
     """Read the roster exported from github, return
     a dictionary with the student ID as the key and the
     github username as the value. If there is no github ID then
@@ -30,10 +30,14 @@ def read_github_roster(pattern, csvfile):
     with open(csvfile) as fd:
         reader = csv.DictReader(fd)
         for line in reader:
-            if 'identifier' in line:
-                match = re.search(pattern, line['identifier'])
-                if match:
-                    result[match.group(0)] = line['github_username']
+            if line['roster_identifier'] == '':
+                nogithub.append(line)
+            else:
+                result[line['roster_identifier']] = line['student_repository_url']
+
+    print("Unidentified Github accounts")
+    for row in nogithub:
+        print(row['github_username'], row['student_repository_url'])
 
     return result
 
@@ -51,7 +55,7 @@ def read_ilearn_export(csvfile, key_field):
         for line in reader:
             if 'Email address' in line and line['Email address'] != '':
                 groups = line['Groups'].split(';')
-                workshop = [g for g in groups if 'Workshop' in g]
+                workshop = [g for g in groups if 'Practical' in g or 'Workshop' in g]
                 if workshop != []:
                     workshop = workshop[0].replace('[', '').replace(']', '')
                     if not workshop in workshops:
@@ -60,152 +64,125 @@ def read_ilearn_export(csvfile, key_field):
                 tmp = {'id': line['ID number'], 'email': line['Email address'], 'workshop': workshop}
                 result[tmp[key_field]] = tmp
 
-    print(workshops)
-
     return result
 
-def read_github_repos(csvfile):
-    """Read the CSV file created by get-repos.py to get the Github URLs
-    for each student"""
+def read_github_roster(csvfile):
+    """Read the CSV file class roster from GitHub Classroom"""
 
-    repos = {}
+    roster = {}
     with open(csvfile) as fd:
         reader = csv.DictReader(fd)
         for line in reader:
-            repos[line['githubID']] = line['githubURL']
+            roster[line['identifier']] = line['github_username']
 
-    return repos
+    return roster
 
 
-def merge_students(config, github, ilearn, repos):
+def merge_students(config, github, ilearn, roster):
     """Generate one dictionary with info from both
     rosters, also return a dictionary with people not
     in both"""
 
-    keys = set(github.keys())
+    keys = set(roster.keys())
     keys = set(keys.union(set(ilearn.keys())))
 
-    roster = []
+
+    students = []
     not_in_github = []
-    extra_github = []
+    no_assignment_repo = []
     no_github_account = []
     for key in keys:
-        if key in github and key in ilearn:
-            if github[key] != '':
-                student = ilearn[key].copy() 
-                student['github'] = github[key]
-                if github[key] in repos:
-                    student['url'] = repos[github[key]]
+        if key in roster and key in ilearn:
+            student = ilearn[key].copy() 
+            if roster[key] != '':
+                student['github'] = roster[key]
+                if key in github:
+                    student['url'] = github[key]
                 else:
-                    print("Can't find repo for ", github[key], student[config['key-field']])
-                roster.append(student)
+                    no_assignment_repo.append(key)
+                students.append(student)
             else:
                 no_github_account.append(ilearn[key])
-        elif key in github:
-            extra_github.append({'id': key, 'github': github[key]})
-        else:
-            not_in_github.append(ilearn[key])
+                students.append(student)
+        elif key in ilearn:
+            not_in_github.append(key)
 
-    return roster, not_in_github, extra_github, no_github_account
+    return students, not_in_github, no_assignment_repo, no_github_account
 
 
-def checkout(config, student):
+def checkout(config, student, pull=True):
     """Checkout one student assignment into a directory
     named for the student id and workshop
     """
 
+    student['count'] = 0
     if 'url' in student:
         outdir = os.path.join(config['outdir'], student['workshop'].replace("|", "-").replace(":", "."))
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
-        targetdir = os.path.join(outdir, student['id'])
+        repoDir = os.path.join(outdir, student['id'])
         
-        if os.path.exists(targetdir):
+        if os.path.exists(repoDir) and pull:
             # existing repo, pull
             cmd = ['git', 'pull']
-            p1 = subprocess.Popen(cmd, cwd=targetdir, stdout=subprocess.PIPE)
+            p1 = subprocess.Popen(cmd, cwd=repoDir, stdout=subprocess.PIPE)
             output = p1.communicate()
-        else:
-            
-            cmd = ['git', 'clone', student['url'], targetdir]
+        elif pull:
+            cmd = ['git', 'clone', '-n', student['url'], repoDir]
+            print(' '.join(cmd))
             p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             output = p1.communicate()
 
-        if config["nbconvert"]:
-            title = "<p>" + student['id'] + "</p>"
-            return title + nbconvert(targetdir)
-        else:
-            return ""
-    else:
-        print(student)
-        return ""
+        student['count'] = count_commits_for_student(repoDir)
+    
 
+def checkout_workshop(config, students, workshops, pull=True):
+    """Checkout all students in the given workshops, 
+    make subdirectories per workshop"""
 
-def nbconvert(targetdir):
-    """Run 'jupyter nbconvert' in the target directory and return
-    the path to any HTML files generated"""
-
-    from nbconvert import HTMLExporter
-
-    # 2. Instantiate the exporter. We use the `classic` template for now; we'll get into more details
-    # later about how to customize the exporter further.
-    html_exporter = HTMLExporter()
-    html_exporter.template_name = 'classic'
-
-    links = "<ul>"
-    for root, dirs, files in os.walk(targetdir):
-        for fname in files:
-            if '.ipynb_checkpoints' not in root and fname.endswith('.ipynb'):
-                try:
-                    nbfile = os.path.join(root, fname)
-                    htmlfile = os.path.splitext(nbfile)[0] + '.html'
-                    (body, resources) = html_exporter.from_filename(nbfile)
-                    links += "<li><a target='new' href='" + htmlfile +"'>" + htmlfile + "</a></li>"
-                    with open(htmlfile, 'w') as out:
-                        out.write(body)
-                except:
-                    links += "<li>Error processing <a target='new' href='" + nbfile + "'>" + nbfile + "</li>"
-
-    links += "</ul>"
-
-    return links
-
-
-def checkout_workshop(config, students, workshops):
-    """Checkout all students in the given workshops to
-    targetdir, make subdirectories per workshop"""
-
-    html = ""
     for student in students:
-        if student['workshop'] in workshops:
-            html += checkout(config, student)
+        if workshops == [] or student['workshop'] in workshops:
+            count = checkout(config, student, pull)
             print('.', end='', flush=True)
 
-    return html
+
+def count_commits_for_student(repodir):
+    """Count the number of commits per student"""
+
+    cmd = ['git', '-C', repodir, 'log', '--oneline']
+    p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    output, foo = p1.communicate()
+
+    output = output.decode().split('\n')
+    return len(output)
+
 
 def process(config):
 
-    github = read_github_roster(config['github-id-pattern'], config['github-roster'])
+    github = read_github_grades(config['github-roster'])
+    roster = read_github_roster(config['roster-csv'])
     ilearn = read_ilearn_export(config['ilearn-csv'], config['key-field'])
-    repos = read_github_repos(config['github-repos-csv'])
 
-    students, not_in_github, extra_github, no_github_account = merge_students(config, github, ilearn, repos)
-    
+    students, not_in_github, no_assignment_repo, no_github_account = merge_students(config, github, ilearn, roster)
+
     if config['report']:
-        print("Extra names in Github Classroom roster")
-        for m in extra_github:
-            print(m['id'])
+        print("These students do not have a repo for this assignment yet\n")
+        for m in no_assignment_repo:
+            print(m)
         print("\nStudents not in Github Classroom Roster")
-        print("Add these to the roster to associate with student github accounts")
+        print("Add these to the roster to associate with student github accounts\n")
         for m in not_in_github:
-            print(m[config['key-field']])
+            print(m)
+            #print(m[config['key-field']])
 
-        print("\nThese students have no github account yet")
+        print("\nThese students have no github account yet\n")
         for m in no_github_account:
             print(m['email'])
-    
-    return checkout_workshop(config, students, config['workshops'])
+
+    checkout_workshop(config, students, config['workshops'], False)
+
+    return students
 
 
 
@@ -213,9 +190,19 @@ if __name__=='__main__':
 
     import sys
     import json
- 
+    import csv
+
     with open(sys.argv[1]) as input:
         config = json.load(input)
 
-    github = process(config)
+    students = process(config)
+
+
+    keys = ['id', 'email', 'workshop', 'github', 'url', 'count']
+    with open(sys.argv[2], 'w') as output:
+        writer = csv.DictWriter(output, keys)
+        writer.writeheader()
+
+        for student in students:
+            writer.writerow(student)
 
