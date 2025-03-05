@@ -134,7 +134,9 @@ def checkout(config, student, pull=True):
             p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             output = p1.communicate()
 
-        student['count'] = count_commits_for_student(repoDir)
+        # if the repo exists then count commits
+        if os.path.exists(repoDir):
+            student['count'] = count_commits_for_student(repoDir)
     
 
 def checkout_workshop(config, students, workshops, pull=True):
@@ -160,7 +162,7 @@ def count_commits_for_student(repodir):
 
 def process(config):
 
-    github = read_github_grades(config['github-roster'])
+    github = read_github_grades(config['github-grades'])
     roster = read_github_roster(config['roster-csv'])
     ilearn = read_ilearn_export(config['ilearn-csv'], config['key-field'])
 
@@ -180,7 +182,7 @@ def process(config):
         for m in no_github_account:
             print(m['email'])
 
-    checkout_workshop(config, students, config['workshops'], False)
+    checkout_workshop(config, students, config['workshops'], config['update-repos'])
 
     return students
 
@@ -197,6 +199,7 @@ if __name__=='__main__':
 
     students = process(config)
 
+    # Write the output to the csv file named on the command line
 
     keys = ['id', 'email', 'workshop', 'github', 'url', 'count']
     with open(sys.argv[2], 'w') as output:
