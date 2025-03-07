@@ -152,7 +152,8 @@ def checkout_workshop(config, students, workshops, pull=True):
 def count_commits_for_student(repodir):
     """Count the number of commits per student"""
 
-    cmd = ['git', '-C', repodir, 'log', '--oneline']
+    one_week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
+    cmd = ['git', '-C', repodir, 'log', '--oneline', '--since', one_week_ago.strftime("%d %b %Y")]
     p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     output, foo = p1.communicate()
 
@@ -168,19 +169,18 @@ def process(config):
 
     students, not_in_github, no_assignment_repo, no_github_account = merge_students(config, github, ilearn, roster)
 
-    if config['report']:
-        print("These students do not have a repo for this assignment yet\n")
-        for m in no_assignment_repo:
-            print(m)
-        print("\nStudents not in Github Classroom Roster")
-        print("Add these to the roster to associate with student github accounts\n")
-        for m in not_in_github:
-            print(m)
-            #print(m[config['key-field']])
+    print("These students do not have a repo for this assignment yet\n")
+    for m in no_assignment_repo:
+        print(m)
+    print("\nStudents not in Github Classroom Roster")
+    print("Add these to the roster to associate with student github accounts\n")
+    for m in not_in_github:
+        print(m)
+        #print(m[config['key-field']])
 
-        print("\nThese students have no github account yet\n")
-        for m in no_github_account:
-            print(m['email'])
+    print("\nThese students have no github account yet\n")
+    for m in no_github_account:
+        print(m['email'])
 
     checkout_workshop(config, students, config['workshops'], config['update-repos'])
 

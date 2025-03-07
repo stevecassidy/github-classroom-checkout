@@ -9,7 +9,7 @@ Create a file COMPXXX-something.json as a copy of CONFIG-SAMPLE.json and fill in
 
 Files needed and where to get them.
 
-`github-roster` is the 'grades' spreadsheet from the GitHub Classroom assignment, it contains the repository URLs for each student
+`github-grades` is the 'grades' spreadsheet from the GitHub Classroom assignment, it contains the repository URLs for each student
 `roster-csv` is downloaded from the GitHub Classroom student roster
 `ilearn-csv` is the CSV version (download as plain text file) of the gradebook from iLearn, you don't need to 
 include any grade items, just used for student details and workshop groups
