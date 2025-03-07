@@ -152,8 +152,12 @@ def checkout_workshop(config, students, workshops, pull=True):
 def count_commits_for_student(repodir):
     """Count the number of commits per student"""
 
-    one_week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
-    cmd = ['git', '-C', repodir, 'log', '--oneline', '--since', one_week_ago.strftime("%d %b %Y")]
+    if (config['commit-days']):
+        one_week_ago = datetime.datetime.now() - datetime.timedelta(days=config['commit-days'])
+        cmd = ['git', '-C', repodir, 'log', '--oneline', '--since', one_week_ago.strftime("%d %b %Y")]
+    else:
+        cmd = ['git', '-C', repodir, 'log', '--oneline']
+
     p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     output, foo = p1.communicate()
 

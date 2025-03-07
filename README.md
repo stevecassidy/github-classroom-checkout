@@ -20,6 +20,7 @@ Other configuration:
 - `outdir` a directory where repositories will be checked out
 - `update-repo` if true, the script will checkout or pull changes for the student repo, if false, this is skipped
 - `workshops` a list of workshop names to check out, default empty list means to check out all of them
+- `commit-days` if set to a number N, will count the number of commits in the past N days, if left out, all commits are counted
 
 `classroom.py COMP2200-weekly.json output.csv` will report on the status of students
 and then clone all repositories in the list of workshops specified in the JSON file.  The output.csv file
