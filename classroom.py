@@ -17,6 +17,7 @@ import subprocess
 import os
 import re
 import glob
+import datetime
 
 def read_github_grades(csvfile):
     """Read the roster exported from github, return
@@ -136,8 +137,9 @@ def checkout(config, student, pull=True):
 
         # if the repo exists then count commits
         if os.path.exists(repoDir):
-            student['count'] = count_commits_for_student(repoDir)
-    
+            student['commits'] = count_commits_for_student(repoDir)
+            if config['commit-days']:
+                student['commits-last-week'] = count_commits_for_student(repoDir, config['commit-days'])    
 
 def checkout_workshop(config, students, workshops, pull=True):
     """Checkout all students in the given workshops, 
@@ -149,10 +151,10 @@ def checkout_workshop(config, students, workshops, pull=True):
             print('.', end='', flush=True)
 
 
-def count_commits_for_student(repodir):
+def count_commits_for_student(repodir, since=False):
     """Count the number of commits per student"""
 
-    if (config['commit-days']):
+    if (since):
         one_week_ago = datetime.datetime.now() - datetime.timedelta(days=config['commit-days'])
         cmd = ['git', '-C', repodir, 'log', '--oneline', '--since', one_week_ago.strftime("%d %b %Y")]
     else:
