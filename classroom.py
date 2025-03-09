@@ -116,7 +116,8 @@ def checkout(config, student, pull=True):
     named for the student id and workshop
     """
 
-    student['count'] = 0
+    student['commits'] = 0
+    student['commits-last-week'] = 0
     if 'url' in student:
         outdir = os.path.join(config['outdir'], student['workshop'].replace("|", "-").replace(":", "."))
         if not os.path.exists(outdir):
@@ -207,7 +208,7 @@ if __name__=='__main__':
 
     # Write the output to the csv file named on the command line
 
-    keys = ['id', 'email', 'workshop', 'github', 'url', 'count']
+    keys = ['id', 'email', 'workshop', 'github', 'url', 'commits', 'commits-last-week'] 
     with open(sys.argv[2], 'w') as output:
         writer = csv.DictWriter(output, keys)
         writer.writeheader()
